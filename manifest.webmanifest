@@ -1,10 +1,23 @@
 {
-  "name": "月結び｜ふたりの月次契約",
-  "short_name": "月結び",
+  "name": "\u6708\u7d50\u3073\uff5c\u3075\u305f\u308a\u306e\u6708\u6b21\u5951\u7d04",
+  "short_name": "\u6708\u7d50\u3073",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#fbf7f2",
   "theme_color": "#fbf7f2",
   "lang": "ja",
-  "icons": [{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+  "icons": [
+    {
+      "src": "channel-icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
 }
