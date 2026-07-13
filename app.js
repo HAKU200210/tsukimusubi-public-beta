@@ -24,14 +24,54 @@
     { key: 'hope', ja: '来月、一緒にしたいこと', zh: '下个月想一起做的事' },
     { key: 'selfChange', ja: '自分が少し変えたいこと', zh: '自己想稍微改变的地方' }
   ];
+  const questionPacks = {
+    standard: { ja: '基本の振り返り', zh: '基础回顾', questions: [] },
+    future: {
+      ja: 'これからのふたり', zh: '两个人的未来', questions: [
+        { key: 'next_season', ja: '次の季節までに、ふたりでしたいこと', zh: '下个季节到来前想一起做的事' },
+        { key: 'future_security', ja: 'これからについて、安心したいこと', zh: '关于未来，希望获得安心的事' },
+        { key: 'small_promise', ja: '来月から始める、小さな約束', zh: '下个月开始的小约定' }
+      ]
+    },
+    closeness: {
+      ja: 'もっと近くなる', zh: '让彼此更亲近', questions: [
+        { key: 'loved_moment', ja: '愛されていると感じた瞬間', zh: '感受到被爱的一刻' },
+        { key: 'want_more', ja: 'もう少し増やしたいふたりの時間', zh: '希望再增加一点的相处时间' },
+        { key: 'say_now', ja: '今だから伝えたいこと', zh: '现在最想告诉对方的话' }
+      ]
+    },
+    repair: {
+      ja: 'すれ違いをほどく', zh: '化解分歧', questions: [
+        { key: 'misunderstood', ja: 'うまく伝わらなかった気持ち', zh: '没能好好传达的心情' },
+        { key: 'need_support', ja: '相手に手伝ってほしいこと', zh: '希望对方给予帮助的事' },
+        { key: 'repair_step', ja: 'ふたりで試したい、ひとつの改善', zh: '两个人想一起尝试的一项改善' }
+      ]
+    }
+  };
+  const renewLabels = {
+    yes: { ja: 'このまま続けたい', zh: '想继续交往' },
+    continue: { ja: 'このまま続けたい', zh: '想继续保持现在这样' },
+    improve: { ja: '少し変えて続けたい', zh: '希望改善后继续' },
+    talk: { ja: '話してから決めたい', zh: '想谈谈再决定' },
+    end: { ja: '今回は更新しない', zh: '这次不续约' }
+  };
   const state = {
     lang: localStorage.getItem('tsuki-language') || (navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'ja'),
     context: null,
     reviews: [],
     status: { a: false, b: false },
     photos: [],
+    memories: { anniversaries: [], dateRecords: [], dateWishes: [] },
     selectedMonth: monthKey,
     lineProfile: null
+  };
+
+  const isPlus = () => Boolean(state.context?.entitlement?.is_plus);
+  const limitFor = key => Number(state.context?.limits?.[key] || ({ photos: 24, anniversaries: 3, date_records: 10, date_wishes: 10 }[key]));
+  const isPositiveRenew = value => ['yes', 'continue', 'improve'].includes(value);
+  const renewText = value => {
+    const label = renewLabels[value] || renewLabels.talk;
+    return t(label.ja, label.zh);
   };
 
   function showToast(message) {
@@ -46,7 +86,11 @@
     const message = String(error?.message || error || 'Unknown error');
     if (/Invalid invitation code|Invalid pairing code/i.test(message)) return t('招待コードが正しくありません。', '邀请码不正确。');
     if (/Already submitted/i.test(message)) return t('今月の回答は提出済みです。', '本月回答已经提交。');
-    if (/quota/i.test(message)) return t('無料Betaの写真上限に達しました。', '已达到免费Beta的照片上限。');
+    if (/Album quota/i.test(message)) return t('アルバムの保存上限に達しました。', '已达到相册保存上限。');
+    if (/Anniversary quota/i.test(message)) return t('記念日の保存上限に達しました。Plusで上限を増やせます。', '已达到纪念日上限，Plus可扩展额度。');
+    if (/Date record quota/i.test(message)) return t('デート記録の保存上限に達しました。Plusで上限を増やせます。', '已达到约会记录上限，Plus可扩展额度。');
+    if (/Date wish quota|Memory quota/i.test(message)) return t('保存上限に達しました。Plusで上限を増やせます。', '已达到保存上限，Plus可扩展额度。');
+    if (/Plus membership required/i.test(message)) return t('この質問テーマはPlus限定です。', '该问题主题仅限Plus。');
     if (/already has a demo pair/i.test(message)) return t('この端末にはすでにデモ空間があります。設定から削除できます。', '此设备已经有演示空间，可在设置中删除。');
     return message;
   }
@@ -151,6 +195,19 @@
     $('#nextDate').textContent = `${next.getFullYear()}.${pad(next.getMonth() + 1)}.01`;
   }
 
+  function renderPlan() {
+    const active = isPlus();
+    const chip = $('#planChip');
+    chip.textContent = active ? 'PLUS' : 'FREE';
+    chip.classList.toggle('plus', active);
+    $('#plusBannerTitle').textContent = active ? t('ふたりともPlus利用中', '两个人正在使用Plus') : t('ふたり分で月290円', '两个人每月290日元');
+    const expires = state.context?.entitlement?.expires_at;
+    $('#plusBannerState').textContent = active
+      ? `${expires ? displayDate(expires.slice(0,10)) : '—'} ${t('まで', '到期')}`
+      : t('詳しく見る →', '查看详情 →');
+    $('#plusBanner').classList.toggle('active', active);
+  }
+
   function renderStatus() {
     const count = Number(state.status.a) + Number(state.status.b);
     $('#monthProgressCount').textContent = `${count} / 2`;
@@ -194,14 +251,17 @@
       return;
     }
     list.innerHTML = completed.map(item => {
-      const continued = item.a.renew === 'yes' && item.b.renew === 'yes';
+      const continued = isPositiveRenew(item.a.renew) && isPositiveRenew(item.b.renew);
       const average = ((reviewAverage(item.a) + reviewAverage(item.b)) / 2).toFixed(1);
-      return `<button class="history-item" data-month="${item.month}"><div><b>${monthLabel(item.month, true)}</b><small>${t('ふたりの平均', '两人平均')} ${average} / 10</small></div><span>${continued ? t('契約継続', '继续交往') : t('対話を選択', '选择沟通')}</span></button>`;
+      const ended = item.a.renew === 'end' || item.b.renew === 'end';
+      return `<button class="history-item" data-month="${item.month}"><div><b>${monthLabel(item.month, true)}</b><small>${t('ふたりの平均', '两人平均')} ${average} / 10</small></div><span>${continued ? t('契約継続', '继续交往') : ended ? t('更新なし', '未续约') : t('対話を選択', '选择沟通')}</span></button>`;
     }).join('');
   }
 
   function renderAlbum() {
-    $('#albumUsage').textContent = `${state.photos.length} / 24`;
+    const limit = limitFor('photos');
+    $('#albumUsage').textContent = `${state.photos.length} / ${limit}`;
+    $('#albumUsage').nextElementSibling.textContent = isPlus() ? t('Plus上限', 'Plus上限') : t('無料上限', '免费上限');
     const grid = $('#albumGrid');
     if (!state.photos.length) {
       grid.innerHTML = `<div class="empty">${t('まだ写真はありません。ふたりの最初の一枚を追加してみよう。', '还没有照片，添加属于两个人的第一张回忆吧。')}</div>`;
@@ -210,23 +270,69 @@
     grid.innerHTML = state.photos.map(photo => `<article class="photo-card"><img src="${e(photo.url)}" alt="${e(photo.name || '')}" loading="lazy"><footer><span>${e((photo.created_at || '').slice(0,10))}</span><button data-delete-photo="${photo.id}" aria-label="Delete">×</button></footer></article>`).join('');
   }
 
+  function nextOccurrence(value) {
+    if (!value) return null;
+    const source = new Date(`${value}T00:00:00`);
+    let result = new Date(today.getFullYear(), source.getMonth(), source.getDate());
+    if (result < new Date(today.getFullYear(), today.getMonth(), today.getDate())) result = new Date(today.getFullYear() + 1, source.getMonth(), source.getDate());
+    return Math.ceil((result - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+  }
+
+  function memoryEmpty(messageJa, messageZh) {
+    return `<div class="memory-empty">${t(messageJa, messageZh)}</div>`;
+  }
+
+  function renderMemories() {
+    const { anniversaries, dateRecords, dateWishes } = state.memories;
+    $('#anniversaryList').innerHTML = anniversaries.length ? anniversaries.map(item => `<article class="memory-item"><div><b>${e(item.title)}</b><small>${displayDate(item.event_date)} · ${t('あと', '还有')} ${nextOccurrence(item.event_date)} ${t('日', '天')}</small>${item.note ? `<p>${e(item.note)}</p>` : ''}</div><button data-delete-memory="anniversary" data-id="${item.id}">×</button></article>`).join('') : memoryEmpty('まだ記念日はありません。', '还没有纪念日。');
+    $('#dateRecordList').innerHTML = dateRecords.length ? dateRecords.map(item => `<article class="memory-item"><div><b>${e(item.title)}</b><small>${displayDate(item.date_on)}${item.place ? ` · ${e(item.place)}` : ''}</small>${item.memory ? `<p>${e(item.memory)}</p>` : ''}</div><button data-delete-memory="date" data-id="${item.id}">×</button></article>`).join('') : memoryEmpty('最初のデートを残してみよう。', '记录第一次约会吧。');
+    $('#dateWishList').innerHTML = dateWishes.length ? dateWishes.map(item => `<article class="memory-item ${item.status === 'done' ? 'done' : ''}"><button class="wish-check" data-wish-status="${item.status === 'done' ? 'planned' : 'done'}" data-id="${item.id}">${item.status === 'done' ? '✓' : '○'}</button><div><b>${e(item.title)}</b>${item.place ? `<small>${e(item.place)}</small>` : ''}${item.note ? `<p>${e(item.note)}</p>` : ''}</div><button data-delete-memory="wish" data-id="${item.id}">×</button></article>`).join('') : memoryEmpty('ふたりで行きたい場所を追加しよう。', '添加两个人想去的地方吧。');
+  }
+
+  function renderInsights() {
+    const content = $('#insightsContent');
+    if (!isPlus()) {
+      content.innerHTML = `<div class="insights-lock"><span>＋</span><div><b>${t('Plusで毎月の変化を深く読む', '使用Plus深入了解每月变化')}</b><p>${t('得点差・前月比・会話のヒントを、ふたりだけのレポートにまとめます。', '将评分差、环比变化与沟通提示整理成两个人的专属报告。')}</p></div><button class="ghost-button open-pricing">${t('Plusを見る', '查看Plus')}</button></div>`;
+      bindPricingButtons();
+      return;
+    }
+    const completed = completedMonths();
+    if (!completed.length) {
+      content.innerHTML = `<div class="empty">${t('最初の共同契約が完成すると、Plusレポートが表示されます。', '完成第一份共同契约后将显示Plus报告。')}</div>`;
+      return;
+    }
+    const latest = completed.at(-1);
+    const previous = completed.at(-2);
+    const pairAverage = item => (reviewAverage(item.a) + reviewAverage(item.b)) / 2;
+    const change = previous ? pairAverage(latest) - pairAverage(previous) : null;
+    const categoryRows = categories.map(category => ({ ...category, value: (Number(latest.a.scores[category.key]) + Number(latest.b.scores[category.key])) / 2 }));
+    const strongest = [...categoryRows].sort((a,b) => b.value-a.value)[0];
+    const focus = [...categoryRows].sort((a,b) => a.value-b.value)[0];
+    const gap = Math.abs(reviewAverage(latest.a) - reviewAverage(latest.b));
+    content.innerHTML = `<div class="insight-grid"><article><span>${t('今月のふたり平均', '本月两人平均')}</span><strong>${pairAverage(latest).toFixed(1)}</strong><small>/10</small></article><article><span>${t('前月から', '较上月')}</span><strong>${change === null ? '—' : `${change >= 0 ? '+' : ''}${change.toFixed(1)}`}</strong></article><article><span>${t('得点の感じ方の差', '评分感受差')}</span><strong>${gap.toFixed(1)}</strong></article></div><div class="insight-notes"><p><b>${t('今月の強み', '本月优势')}：</b>${t(strongest.ja,strongest.zh)} (${strongest.value.toFixed(1)})</p><p><b>${t('話してみたいテーマ', '建议沟通主题')}：</b>${t(focus.ja,focus.zh)} (${focus.value.toFixed(1)})</p><p>${t('数値は関係の良し悪しを決めるものではなく、会話を始めるための目印です。', '分数不是判断关系好坏的标准，而是开启沟通的提示。')}</p></div>`;
+  }
+
   function renderAll() {
     if (!state.context) return;
     renderPair();
+    renderPlan();
     renderStatus();
     renderScores();
     renderHistory();
     renderAlbum();
+    renderMemories();
+    renderInsights();
     $('#demoWarning').classList.toggle('hidden', backend.mode !== 'demo');
   }
 
   async function refreshData() {
     state.context = backend.context;
     if (!state.context) return;
-    const [reviews, status, photos] = await Promise.all([backend.loadReviews(), backend.monthStatus(monthKey), backend.getPhotos()]);
+    const [reviews, status, photos, memories] = await Promise.all([backend.loadReviews(), backend.monthStatus(monthKey), backend.getPhotos(), backend.loadMemories()]);
     state.reviews = reviews;
     state.status = status;
     state.photos = photos;
+    state.memories = memories;
     renderAll();
   }
 
@@ -236,17 +342,33 @@
     $('#reviewForm').reset();
     $('#scoreFields').innerHTML = categories.map(category => `<div class="score-row"><label><b>${t(category.ja, category.zh)}</b><small>${t('パートナーへの評価', '给对象的评价')}</small></label><input type="range" name="${category.key}" min="1" max="10" value="7"><output class="score-value">7</output></div>`).join('');
     $('#textFields').innerHTML = textFields.map(field => `<div class="field"><label>${t(field.ja, field.zh)}<small>${t('短くても、正直な言葉で大丈夫です。', '写得简短也没关系，真诚就好。')}</small></label><textarea required maxlength="500" name="${field.key}"></textarea></div>`).join('');
+    $('#questionPack').innerHTML = Object.entries(questionPacks).map(([key, pack]) => `<option value="${key}" ${key !== 'standard' && !isPlus() ? 'disabled' : ''}>${t(pack.ja,pack.zh)}${key !== 'standard' ? ' · PLUS' : ''}</option>`).join('');
+    renderExtraFields('standard');
+    $('#questionPack').onchange = event => renderExtraFields(event.target.value);
     $$('#scoreFields input').forEach(input => input.addEventListener('input', () => input.nextElementSibling.textContent = input.value));
+  }
+
+  function renderExtraFields(packKey) {
+    const pack = questionPacks[packKey] || questionPacks.standard;
+    $('#extraFields').innerHTML = pack.questions.length
+      ? `<div class="extra-question-list">${pack.questions.map(question => `<div class="field"><label>${t(question.ja,question.zh)}<small>${t('ふたりだけの回答として保存されます。', '将作为两个人的专属回答保存。')}</small></label><textarea required maxlength="500" name="extra_${question.key}"></textarea></div>`).join('')}</div>`
+      : `<p class="pack-note">${t('いつもの5つの質問で振り返ります。', '使用常规的5个问题进行回顾。')}</p>`;
   }
 
   function renderResult(month) {
     const { a, b } = reviewsForMonth(month);
     if (!a || !b) return;
     const personA = roleData('a'), personB = roleData('b');
-    const continued = a.renew === 'yes' && b.renew === 'yes';
-    $('#resultHero').innerHTML = `<span class="section-kicker">${e(monthLabel(month, true))}</span><h1>${continued ? t('来月も、よろしくね ♡', '下个月，也请继续相爱 ♡') : t('まずは、ゆっくり話そう', '先停下来，好好聊聊')}</h1><p>${e(personA.name)}：${a.renew === 'yes' ? t('続けたい', '想继续') : t('話して決めたい', '想谈谈再决定')}<br>${e(personB.name)}：${b.renew === 'yes' ? t('続けたい', '想继续') : t('話して決めたい', '想谈谈再决定')}</p>`;
+    const continued = isPositiveRenew(a.renew) && isPositiveRenew(b.renew);
+    const ended = a.renew === 'end' || b.renew === 'end';
+    const headline = continued ? t('来月も、よろしくね ♡', '下个月，也请继续相爱 ♡') : ended ? t('ふたりの答えを、丁寧に受け止めよう', '认真面对两个人的答案') : t('まずは、ゆっくり話そう', '先停下来，好好聊聊');
+    $('#resultHero').innerHTML = `<span class="section-kicker">${e(monthLabel(month, true))}</span><h1>${headline}</h1><p>${e(personA.name)}：${renewText(a.renew)}<br>${e(personB.name)}：${renewText(b.renew)}</p>`;
     $('#scoreCompare').innerHTML = categories.map(category => `<article class="score-box"><span>${t(category.ja, category.zh)}</span><strong>${((Number(a.scores[category.key]) + Number(b.scores[category.key])) / 2).toFixed(1)}</strong><small>${e(personA.name)} ${a.scores[category.key]} · ${e(personB.name)} ${b.scores[category.key]}</small></article>`).join('');
-    $('#wordsCompare').innerHTML = [['a', a, personA], ['b', b, personB]].map(([, review, person]) => `<article class="words-person"><h2>${e(person.name)} ${t('から、ふたりへ', '写给我们')}</h2>${textFields.map(field => `<div class="quote-block"><span>${t(field.ja, field.zh)}</span><p>${e(review[field.key === 'selfChange' ? 'self_change' : field.key])}</p></div>`).join('')}</article>`).join('');
+    $('#wordsCompare').innerHTML = [['a', a, personA], ['b', b, personB]].map(([, review, person]) => {
+      const pack = questionPacks[review.question_pack] || questionPacks.standard;
+      const extras = pack.questions.map(question => `<div class="quote-block plus-quote"><span>${t(question.ja,question.zh)}</span><p>${e(review.extra_answers?.[question.key] || '—')}</p></div>`).join('');
+      return `<article class="words-person"><h2>${e(person.name)} ${t('から、ふたりへ', '写给我们')}</h2>${textFields.map(field => `<div class="quote-block"><span>${t(field.ja, field.zh)}</span><p>${e(review[field.key === 'selfChange' ? 'self_change' : field.key])}</p></div>`).join('')}${extras}</article>`;
+    }).join('');
     showView('result');
   }
 
@@ -315,7 +437,9 @@
     button.disabled = true;
     const form = new FormData(event.currentTarget);
     const scores = Object.fromEntries(categories.map(category => [category.key, Number(form.get(category.key))]));
-    const review = { scores, renew: form.get('renew') };
+    const questionPack = form.get('questionPack') || 'standard';
+    const extraAnswers = Object.fromEntries((questionPacks[questionPack]?.questions || []).map(question => [question.key, form.get(`extra_${question.key}`)?.trim() || '']));
+    const review = { scores, renew: form.get('renew'), questionPack, extraAnswers };
     textFields.forEach(field => review[field.key] = form.get(field.key).trim());
     try {
       await backend.submitReview(monthKey, review);
@@ -355,14 +479,57 @@
   }
 
   async function handlePhotos(files) {
-    if (state.photos.length >= 24) return showToast(t('無料Betaの写真上限に達しました。', '已达到免费Beta的照片上限。'));
-    const available = 24 - state.photos.length;
+    const limit = limitFor('photos');
+    if (state.photos.length >= limit) return showToast(t('アルバムの保存上限に達しました。', '已达到相册保存上限。'));
+    const available = limit - state.photos.length;
     for (const file of [...files].slice(0, available)) {
       try { await backend.addPhoto(await compressPhoto(file)); }
       catch (error) { showToast(errorText(error)); break; }
     }
     state.photos = await backend.getPhotos();
     renderAlbum();
+  }
+
+  function bindPricingButtons() {
+    $$('.open-pricing').forEach(button => button.onclick = () => openModal('pricingModal'));
+  }
+
+  function openMemoryForm(type) {
+    const form = $('#memoryForm');
+    form.reset();
+    form.elements.type.value = type;
+    const definitions = {
+      anniversary: { ja: '記念日を追加', zh: '添加纪念日', date: true, place: false },
+      date: { ja: 'デート記録を追加', zh: '添加约会记录', date: true, place: true },
+      wish: { ja: '一緒にしたいことを追加', zh: '添加想一起做的事', date: false, place: true }
+    };
+    const definition = definitions[type];
+    if (!definition) return;
+    $('#memoryModalTitle').textContent = t(definition.ja,definition.zh);
+    form.elements.date.required = definition.date;
+    form.elements.date.closest('label').classList.toggle('hidden',!definition.date);
+    $('#memoryPlaceField').classList.toggle('hidden',!definition.place);
+    openModal('memoryModal');
+  }
+
+  async function handleMemory(event) {
+    event.preventDefault();
+    const button = event.submitter;
+    button.disabled = true;
+    const form = new FormData(event.currentTarget);
+    try {
+      await backend.createMemory(form.get('type'), {
+        date: form.get('date') || null,
+        title: form.get('title').trim(),
+        place: form.get('place')?.trim() || '',
+        note: form.get('note')?.trim() || ''
+      });
+      state.memories = await backend.loadMemories();
+      renderMemories();
+      closeModal('memoryModal');
+      showToast(t('ふたりの思い出に追加しました。', '已添加到两个人的回忆。'));
+    } catch (error) { showToast(errorText(error)); }
+    finally { button.disabled = false; }
   }
 
   function renderSettings() {
@@ -373,7 +540,10 @@
       return;
     }
     const me = roleData(state.context.role);
-    content.innerHTML = `<section class="settings-section"><h3>${t('あなたのプロフィール', '你的个人资料')}</h3><form id="profileForm" class="stack-form"><div class="two-fields"><label><span>${t('呼び名', '昵称')}</span><input name="name" required maxlength="16" value="${e(me.name)}"></label><label><span>${t('一文字', '头像文字')}</span><input name="initial" required maxlength="1" value="${e(me.initial)}"></label></div><button class="settings-button" type="submit">${t('プロフィールを保存', '保存个人资料')}</button></form></section><section class="settings-section"><h3>${t('表示言語', '显示语言')}</h3>${languageButtons()}</section>${state.context.role === 'a' ? `<section class="settings-section"><h3>${t('新しい招待コード', '新的邀请码')}</h3><p class="tiny">${t('以前のパートナー用コードを無効にし、新しいコードを一度だけ表示します。', '旧的对象邀请码将失效，新代码只显示一次。')}</p><button id="rotateInvite" class="settings-button">${t('招待コードを再発行', '重新生成邀请码')}</button><div id="rotatedCode"></div></section>` : ''}${backend.mode === 'demo' ? `<section class="settings-section"><h3>${t('デモ用の役割切替', '演示身份切换')}</h3><div class="language-buttons"><button data-role="a">${e(roleData('a').name)}</button><button data-role="b">${e(roleData('b').name)}</button></div></section>` : ''}<section class="settings-section"><h3>${t('データ管理', '数据管理')}</h3><div class="language-buttons"><button id="exportData">${t('データを書き出す', '导出数据')}</button><button id="deleteAccount" class="danger-button">${t('アカウントを削除', '删除账户')}</button></div></section><section class="settings-section"><p class="tiny">${t('FREE BETA：課金は発生しません。写真は1組24枚までです。', '免费Beta：不会产生费用，每对情侣最多保存24张照片。')}</p></section>`;
+    const planText = isPlus()
+      ? `${t('Plus利用中', '正在使用Plus')} · ${displayDate(state.context.entitlement.expires_at?.slice(0,10))} ${t('まで', '到期')}`
+      : t('無料プラン利用中', '正在使用免费版');
+    content.innerHTML = `<section class="settings-section plan-settings"><h3>TSUKIMUSUBI ${isPlus() ? 'PLUS' : 'FREE'}</h3><p>${planText}</p><button class="settings-button open-pricing">${t('プランと機能を見る', '查看套餐与功能')}</button></section><section class="settings-section"><h3>${t('あなたのプロフィール', '你的个人资料')}</h3><form id="profileForm" class="stack-form"><div class="two-fields"><label><span>${t('呼び名', '昵称')}</span><input name="name" required maxlength="16" value="${e(me.name)}"></label><label><span>${t('一文字', '头像文字')}</span><input name="initial" required maxlength="1" value="${e(me.initial)}"></label></div><button class="settings-button" type="submit">${t('プロフィールを保存', '保存个人资料')}</button></form></section><section class="settings-section"><h3>${t('表示言語', '显示语言')}</h3>${languageButtons()}</section>${state.context.role === 'a' ? `<section class="settings-section"><h3>${t('新しい招待コード', '新的邀请码')}</h3><p class="tiny">${t('以前のパートナー用コードを無効にし、新しいコードを一度だけ表示します。', '旧的对象邀请码将失效，新代码只显示一次。')}</p><button id="rotateInvite" class="settings-button">${t('招待コードを再発行', '重新生成邀请码')}</button><div id="rotatedCode"></div></section>` : ''}${backend.mode === 'demo' ? `<section class="settings-section"><h3>${t('デモ用の役割切替', '演示身份切换')}</h3><div class="language-buttons"><button data-role="a">${e(roleData('a').name)}</button><button data-role="b">${e(roleData('b').name)}</button></div></section>` : ''}<section class="settings-section"><h3>${t('データ管理', '数据管理')}</h3><div class="language-buttons"><button id="exportData">${t('データを書き出す', '导出数据')}</button><button id="deleteAccount" class="danger-button">${t('アカウントを削除', '删除账户')}</button></div></section><section class="settings-section"><p class="tiny">${t('自動更新はありません。Plus期限後も無料版のデータは残ります。', '不会自动续费，Plus到期后免费版数据仍会保留。')}</p></section>`;
     content.insertAdjacentHTML('beforeend', `<section class="settings-section"><h3>${t('自分の復元コード', '自己的恢复码')}</h3><p class="tiny">${t('機種変更用の新しいコードを一度だけ表示します。以前の自分用コードは無効になります。', '将显示一次用于换手机的新代码，旧的个人恢复码会失效。')}</p><button id="rotateRecovery" class="settings-button">${t('復元コードを再発行', '重新生成恢复码')}</button><div id="rotatedRecovery"></div></section>`);
     bindSettings();
   }
@@ -390,6 +560,7 @@
   }
 
   function bindSettings() {
+    bindPricingButtons();
     $$('[data-lang]').forEach(button => button.onclick = () => { state.lang = button.dataset.lang; applyLanguage(); renderSettings(); });
     $('#profileForm')?.addEventListener('submit', async event => {
       event.preventDefault();
@@ -412,18 +583,18 @@
     $('#deleteAccount')?.addEventListener('click', async () => {
       const confirmed = confirm(t('この端末の会員情報を削除します。最後のメンバーの場合、ふたりのデータも削除されます。続けますか？', '将删除此设备的会员信息。如果这是最后一名成员，两人的数据也会删除。继续吗？'));
       if (!confirmed) return;
-      try { await backend.deleteAccount(); state.context = null; state.reviews = []; state.photos = []; closeModal('settingsModal'); showView('welcome'); showToast(t('削除しました。', '已删除。')); }
+      try { await backend.deleteAccount(); state.context = null; state.reviews = []; state.photos = []; state.memories = { anniversaries: [], dateRecords: [], dateWishes: [] }; closeModal('settingsModal'); showView('welcome'); showToast(t('削除しました。', '已删除。')); }
       catch (error) { showToast(errorText(error)); }
     });
   }
 
   function renderLegal(type) {
     const privacy = state.lang === 'zh'
-      ? `<span class="section-kicker">PRIVACY</span><h2>隐私政策（Beta）</h2><p>月结仅收集提供双人契约、历史记录与共享相册所必需的信息，包括昵称、配对关系、回答、评分、照片及技术日志。回答在双方提交前不会向对象公开。</p><h3>数据用途</h3><ul><li>提供、维护与保护服务</li><li>排查故障及防止滥用</li><li>根据用户请求导出或删除数据</li></ul><h3>保存与删除</h3><p>照片存放在私有存储空间，通过短期有效链接读取。用户可在设置中删除自己的账户；最后一名成员删除账户后，配对数据将一并删除。</p><h3>Beta说明</h3><p>本版本不收取费用，不用于医疗、法律或心理诊断。提供者为 HAKU（月结运营）。</p><p><a href="privacy.html" target="_blank" rel="noopener">查看完整隐私政策</a></p>`
-      : `<span class="section-kicker">PRIVACY</span><h2>プライバシーポリシー（Beta）</h2><p>月結びは、ふたりの契約、履歴、共有アルバムを提供するために必要な範囲で、呼び名、ペア関係、回答、得点、写真、技術ログを取り扱います。回答は双方が提出するまで相手に公開されません。</p><h3>利用目的</h3><ul><li>サービスの提供・保守・安全確保</li><li>不具合調査および不正利用の防止</li><li>利用者の求めに応じたデータの出力・削除</li></ul><h3>保存と削除</h3><p>写真は非公開ストレージに保存し、短時間のみ有効なURLで表示します。設定からアカウントを削除でき、最後のメンバーが削除した場合はペアデータも削除します。</p><h3>Betaについて</h3><p>本版は無料で、医療・法律・心理診断を目的としません。提供者は HAKU（月結び運営）です。</p><p><a href="privacy.html" target="_blank" rel="noopener">完全版のプライバシーポリシーを確認</a></p>`;
+      ? `<span class="section-kicker">PRIVACY</span><h2>隐私政策</h2><p>月结会处理提供契约、历史、纪念日、约会记录、愿望与共享相册所需的信息。回答在双方提交前不会向对象公开。</p><h3>数据用途</h3><ul><li>提供、维护与保护服务</li><li>排查故障及防止滥用</li><li>根据用户请求导出或删除数据</li></ul><h3>保存与删除</h3><p>照片存放在私有存储空间。用户可在设置中删除账户，最后一名成员删除后，配对数据将一并删除。</p><p><a href="privacy.html" target="_blank" rel="noopener">查看完整隐私政策</a></p>`
+      : `<span class="section-kicker">PRIVACY</span><h2>プライバシーポリシー</h2><p>月結びは、契約、履歴、記念日、デート記録、行きたい場所、共有アルバムの提供に必要な情報を取り扱います。回答は双方が提出するまで相手に公開されません。</p><h3>利用目的</h3><ul><li>サービスの提供・保守・安全確保</li><li>不具合調査および不正利用の防止</li><li>利用者の求めに応じたデータの出力・削除</li></ul><h3>保存と削除</h3><p>写真は非公開ストレージに保存します。設定からアカウントを削除でき、最後のメンバーが削除した場合はペアデータも削除します。</p><p><a href="privacy.html" target="_blank" rel="noopener">完全版のプライバシーポリシーを確認</a></p>`;
     const terms = state.lang === 'zh'
-      ? `<span class="section-kicker">TERMS</span><h2>使用条款（Beta）</h2><p>本服务供年满18周岁的用户，在双方同意的前提下记录关系回顾。不得擅自上传第三人的照片或个人信息，也不得将邀请码公开。</p><h3>禁止事项</h3><ul><li>骚扰、监视、胁迫或未经同意使用</li><li>侵犯他人权利或违法内容</li><li>试图访问其他配对的数据</li></ul><h3>服务性质</h3><p>Beta期间功能可能变更或暂停。重要内容请使用导出功能自行备份。本服务不能代替紧急援助或专业咨询。</p>`
-      : `<span class="section-kicker">TERMS</span><h2>利用規約（Beta）</h2><p>本サービスは18歳以上の方が、双方の同意のもとで関係の振り返りを記録するために利用できます。第三者の写真・個人情報を無断で投稿したり、招待コードを公開したりしないでください。</p><h3>禁止事項</h3><ul><li>嫌がらせ、監視、強要または同意のない利用</li><li>他者の権利を侵害する内容、法令に反する内容</li><li>他のペアのデータへのアクセスの試み</li></ul><h3>サービスの性質</h3><p>Beta期間中は機能の変更・停止があります。大切な内容は書き出し機能で保管してください。本サービスは緊急支援や専門家への相談を代替するものではありません。</p>`;
+      ? `<span class="section-kicker">TERMS</span><h2>使用条款</h2><p>本服务供年满18周岁的用户，在双方自愿同意的前提下记录关系回顾。不得擅自上传第三人的照片或个人信息，也不得公开邀请码。</p><h3>免费版与Plus</h3><p>Plus先行价格为1个月290日元、3个月790日元，均不自动续费。LINE审核完成、购买按钮启用前不会收费。</p><h3>服务性质</h3><p>功能可能变更或暂停，重要内容请自行导出备份。本服务不能代替紧急援助或专业咨询。</p><p><a href="terms.html" target="_blank" rel="noopener">查看完整使用条款</a></p>`
+      : `<span class="section-kicker">TERMS</span><h2>利用規約</h2><p>本サービスは18歳以上の方が、双方の自由な同意のもとで関係を振り返るために利用できます。第三者の写真・個人情報を無断で投稿したり、招待コードを公開したりしないでください。</p><h3>Free / Plus</h3><p>Plusの先行価格は1か月290円、3か月790円で、自動更新はありません。LINE審査完了後に購入ボタンが有効になるまでは課金されません。</p><h3>サービスの性質</h3><p>機能の変更・停止があります。大切な内容は書き出し機能で保管してください。本サービスは緊急支援や専門家への相談を代替しません。</p><p><a href="terms.html" target="_blank" rel="noopener">完全版の利用規約を確認</a></p>`;
     $('#legalContent').innerHTML = type === 'privacy' ? privacy : terms;
     openModal('legalModal');
   }
@@ -441,6 +612,7 @@
     $('#createForm').addEventListener('submit', handleCreate);
     $('#joinForm').addEventListener('submit', handleJoin);
     $('#reviewForm').addEventListener('submit', handleReview);
+    $('#memoryForm').addEventListener('submit', handleMemory);
     $('#settingsButton').onclick = () => { renderSettings(); openModal('settingsModal'); };
     $('#homeButton').onclick = () => showView(state.context ? 'home' : 'welcome');
     $$('[data-close]').forEach(button => button.onclick = () => closeModal(button));
@@ -453,6 +625,21 @@
       renderReviewForm(); showView('review');
     };
     $('#historyList').onclick = event => { const item = event.target.closest('[data-month]'); if (item) renderResult(item.dataset.month); };
+    $$('[data-add-memory]').forEach(button => button.onclick = () => openMemoryForm(button.dataset.addMemory));
+    $('.memory-section').onclick = async event => {
+      const remove = event.target.closest('[data-delete-memory]');
+      if (remove) {
+        if (!confirm(t('この記録を削除しますか？', '要删除这条记录吗？'))) return;
+        try { await backend.deleteMemory(remove.dataset.deleteMemory,remove.dataset.id); state.memories = await backend.loadMemories(); renderMemories(); }
+        catch (error) { showToast(errorText(error)); }
+        return;
+      }
+      const status = event.target.closest('[data-wish-status]');
+      if (status) {
+        try { await backend.setWishStatus(status.dataset.id,status.dataset.wishStatus); state.memories = await backend.loadMemories(); renderMemories(); }
+        catch (error) { showToast(errorText(error)); }
+      }
+    };
     $('#photoInput').onchange = event => { handlePhotos(event.target.files); event.target.value = ''; };
     $('#albumGrid').onclick = async event => {
       const button = event.target.closest('[data-delete-photo]');
@@ -463,6 +650,7 @@
       catch (error) { showToast(errorText(error)); }
     };
     $$('[data-legal]').forEach(button => button.onclick = () => renderLegal(button.dataset.legal));
+    bindPricingButtons();
     document.addEventListener('keydown', event => { if (event.key === 'Escape') $$('.modal.open').forEach(closeModal); });
   }
 
