@@ -1,5 +1,5 @@
 window.TSUKIMUSUBI_CONFIG = {
-  supabaseUrl: '',
+  supabaseUrl: 'https://zvbvxssyrxmjdvwevows.supabase.co',
   supabaseKey: '',
   liffId: ''
 };
