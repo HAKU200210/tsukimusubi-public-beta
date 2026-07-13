@@ -22,7 +22,7 @@
       <span><b>月結び</b><small>TSUKIMUSUBI</small></span>
     </button>
     <div class="top-actions">
-      <span class="beta-chip">FREE BETA</span>
+      <span id="planChip" class="beta-chip">FREE</span>
       <span id="lineState" class="line-state"><i></i><span>Browser</span></span>
       <button id="settingsButton" class="round-button" aria-label="設定">•••</button>
     </div>
@@ -39,7 +39,7 @@
             <button id="openCreate" class="primary-button"><span data-ja="ふたりの空間をつくる" data-zh="创建两个人的空间">ふたりの空間をつくる</span><b>→</b></button>
             <button id="openJoin" class="ghost-button" data-ja="招待コードで参加" data-zh="使用邀请码加入">招待コードで参加</button>
           </div>
-          <p class="tiny"><span data-ja="現在は無料テスト版です。課金機能は無効です。" data-zh="目前是免费测试版，付费功能尚未启用。">現在は無料テスト版です。課金機能は無効です。</span></p>
+          <p class="tiny"><span data-ja="基本機能は無料。Plusは1か月290円から（課金準備中）。" data-zh="基础功能免费，Plus 每月290日元起（付费功能准备中）。">基本機能は無料。Plusは1か月290円から（課金準備中）。</span></p>
         </div>
         <div class="moon-art" aria-hidden="true">
           <div class="orbit"><span class="moon moon-left">月</span><b>♡</b><span class="moon moon-right">結</span></div>
@@ -51,6 +51,10 @@
         <article><span>02</span><b data-ja="毎月の変化" data-zh="每月变化">毎月の変化</b><small data-ja="得点と気持ちを記録" data-zh="记录评分与感受">得点と気持ちを記録</small></article>
         <article><span>03</span><b data-ja="ふたりの記憶" data-zh="两人的回忆">ふたりの記憶</b><small data-ja="写真と契約を保管" data-zh="保存照片与契约">写真と契約を保管</small></article>
       </div>
+      <section class="welcome-plus shell">
+        <div><span class="section-kicker">TSUKIMUSUBI PLUS</span><h2 data-ja="ふたりの思い出を、もっと長く、深く。" data-zh="让两个人的回忆，保存得更久、更完整。">ふたりの思い出を、もっと長く、深く。</h2><p data-ja="記念日・デート記録・行きたい場所・進階レポート・写真300枚。" data-zh="纪念日、约会记录、约会愿望、进阶报告与300张照片。">記念日・デート記録・行きたい場所・進階レポート・写真300枚。</p></div>
+        <button class="ghost-button open-pricing" data-ja="Plusを見る" data-zh="查看Plus">Plusを見る</button>
+      </section>
     </section>
 
     <section id="homeView" class="view shell">
@@ -69,6 +73,8 @@
         <span><i></i><span id="monthProgressText">今月の契約は準備中</span></span>
         <strong id="monthProgressCount">0 / 2</strong>
       </div>
+
+      <button id="plusBanner" class="plus-banner open-pricing"><span><small>TSUKIMUSUBI PLUS</small><b id="plusBannerTitle">ふたり分で月290円</b></span><strong id="plusBannerState">詳しく見る →</strong></button>
 
       <div class="home-grid">
         <article class="paper-card checkin-card">
@@ -98,9 +104,23 @@
         <div class="chart-card"><header><b data-ja="月ごとの変化" data-zh="每月变化">月ごとの変化</b><span><i class="blue-dot"></i><span id="legendA">A</span><i class="rose-dot"></i><span id="legendB">B</span></span></header><div id="trendChart" class="trend-chart"><p data-ja="最初の共同契約が完成すると表示されます。" data-zh="完成第一份共同契约后将显示趋势。">最初の共同契約が完成すると表示されます。</p></div></div>
       </section>
 
+      <section class="section-block" id="insightsSection">
+        <header><div><span class="section-kicker">PLUS INSIGHTS</span><h2 data-ja="ふたりの関係レポート" data-zh="两个人的关系报告">ふたりの関係レポート</h2></div><span class="plus-mark">PLUS</span></header>
+        <div id="insightsContent" class="insights-content"></div>
+      </section>
+
       <section class="section-block">
         <header><div><span class="section-kicker">OUR STORY</span><h2 data-ja="ふたりの契約記録" data-zh="两人的契约记录">ふたりの契約記録</h2></div></header>
         <div id="historyList" class="history-list"></div>
+      </section>
+
+      <section class="section-block memory-section">
+        <header><div><span class="section-kicker">OUR MEMORIES</span><h2 data-ja="ふたりの思い出帳" data-zh="两个人的回忆册">ふたりの思い出帳</h2><p class="subcopy" data-ja="無料版は記念日3件・デート10件・行きたい場所10件まで。" data-zh="免费版可保存3个纪念日、10条约会和10个约会愿望。">無料版は記念日3件・デート10件・行きたい場所10件まで。</p></div></header>
+        <div class="memory-grid">
+          <article class="memory-board"><header><div><span>ANNIVERSARY</span><h3 data-ja="記念日" data-zh="纪念日">記念日</h3></div><button data-add-memory="anniversary">＋</button></header><div id="anniversaryList" class="memory-list"></div></article>
+          <article class="memory-board"><header><div><span>DATE LOG</span><h3 data-ja="デート記録" data-zh="约会记录">デート記録</h3></div><button data-add-memory="date">＋</button></header><div id="dateRecordList" class="memory-list"></div></article>
+          <article class="memory-board"><header><div><span>WISHLIST</span><h3 data-ja="一緒にしたいこと" data-zh="想一起做的事">一緒にしたいこと</h3></div><button data-add-memory="wish">＋</button></header><div id="dateWishList" class="memory-list"></div></article>
+        </div>
       </section>
 
       <section class="section-block">
@@ -114,8 +134,9 @@
       <div class="form-heading"><span class="section-kicker">SEALED LETTER</span><h1><span id="reviewerName">—</span><span data-ja="の今月の手紙" data-zh="的本月来信">の今月の手紙</span></h1><p data-ja="正解はありません。今月のふたりを、あなたの言葉で残してください。" data-zh="没有标准答案，请用自己的话留下这个月的感受。">正解はありません。今月のふたりを、あなたの言葉で残してください。</p></div>
       <form id="reviewForm">
         <article class="form-card"><div class="step-title"><span>01</span><div><h2 data-ja="パートナーへの6つの得点" data-zh="给对象的六项评分">パートナーへの6つの得点</h2><p data-ja="1から10まで、今月感じたままに。" data-zh="从1到10，按照本月真实感受评分。">1から10まで、今月感じたままに。</p></div></div><div id="scoreFields" class="score-fields"></div></article>
-        <article class="form-card"><div class="step-title"><span>02</span><div><h2 data-ja="言葉で残すこと" data-zh="想用文字留下的事">言葉で残すこと</h2></div></div><div id="textFields"></div></article>
-        <article class="form-card"><div class="step-title"><span>03</span><div><h2 data-ja="来月も一緒にいたい？" data-zh="下个月还想继续在一起吗？">来月も一緒にいたい？</h2></div></div><div class="renew-options"><label><input required type="radio" name="renew" value="yes"><span><b data-ja="はい、続けたい" data-zh="想继续交往">はい、続けたい</b><small data-ja="来月もよろしくね" data-zh="下个月也请多关照">来月もよろしくね</small></span></label><label><input required type="radio" name="renew" value="talk"><span><b data-ja="話してから決めたい" data-zh="想谈谈再决定">話してから決めたい</b><small data-ja="まず気持ちを聞きたい" data-zh="想先听听彼此的想法">まず気持ちを聞きたい</small></span></label></div></article>
+        <article class="form-card"><div class="step-title"><span>02</span><div><h2 data-ja="今月の質問テーマ" data-zh="本月问题主题">今月の質問テーマ</h2><p data-ja="Plusなら、ふたりに合う深掘り質問を選べます。" data-zh="Plus可以选择更适合两个人的深入问题。">Plusなら、ふたりに合う深掘り質問を選べます。</p></div></div><label class="pack-select"><span data-ja="質問パック" data-zh="问题包">質問パック</span><select id="questionPack" name="questionPack"></select></label><div id="extraFields"></div></article>
+        <article class="form-card"><div class="step-title"><span>03</span><div><h2 data-ja="言葉で残すこと" data-zh="想用文字留下的事">言葉で残すこと</h2></div></div><div id="textFields"></div></article>
+        <article class="form-card"><div class="step-title"><span>04</span><div><h2 data-ja="来月も一緒にいたい？" data-zh="下个月还想继续在一起吗？">来月も一緒にいたい？</h2></div></div><div class="renew-options four"><label><input required type="radio" name="renew" value="continue"><span><b data-ja="このまま続けたい" data-zh="想继续保持现在这样">このまま続けたい</b><small data-ja="来月もよろしくね" data-zh="下个月也请多关照">来月もよろしくね</small></span></label><label><input required type="radio" name="renew" value="improve"><span><b data-ja="少し変えて続けたい" data-zh="希望改善后继续">少し変えて続けたい</b><small data-ja="もっと良いふたりになりたい" data-zh="想让关系变得更好">もっと良いふたりになりたい</small></span></label><label><input required type="radio" name="renew" value="talk"><span><b data-ja="話してから決めたい" data-zh="想谈谈再决定">話してから決めたい</b><small data-ja="まず気持ちを聞きたい" data-zh="想先听听彼此的想法">まず気持ちを聞きたい</small></span></label><label><input required type="radio" name="renew" value="end"><span><b data-ja="今回は更新しない" data-zh="这次不续约">今回は更新しない</b><small data-ja="無理せず、正直に伝える" data-zh="不勉强，诚实表达">無理せず、正直に伝える</small></span></label></div></article>
         <div class="submit-zone"><button class="primary-button" type="submit"><span data-ja="回答を封印して提出" data-zh="密封并提交回答">回答を封印して提出</span><b>→</b></button><p data-ja="提出後は今月の回答を変更できません。" data-zh="提交后本月回答无法修改。">提出後は今月の回答を変更できません。</p></div>
       </form>
     </section>
@@ -128,7 +149,7 @@
     </section>
   </main>
 
-  <footer><span>月結び · FREE BETA</span><nav><button data-legal="privacy" data-ja="プライバシー" data-zh="隐私政策">プライバシー</button><button data-legal="terms" data-ja="利用規約" data-zh="使用条款">利用規約</button></nav></footer>
+  <footer><span>月結び · FREE / PLUS</span><nav><button data-legal="privacy" data-ja="プライバシー" data-zh="隐私政策">プライバシー</button><button data-legal="terms" data-ja="利用規約" data-zh="使用条款">利用規約</button></nav></footer>
 
   <div id="createModal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close></div><div class="modal-card large"><button class="modal-x" data-close>×</button><span class="section-kicker">BEGINNING</span><h2 data-ja="ふたりの空間をつくる" data-zh="创建两个人的空间">ふたりの空間をつくる</h2><form id="createForm" class="stack-form"><div class="two-fields"><label><span data-ja="あなたの呼び名" data-zh="你的昵称">あなたの呼び名</span><input name="nameA" required maxlength="16" placeholder="ゆう"></label><label><span data-ja="アイコンの一文字" data-zh="头像文字">アイコンの一文字</span><input name="initialA" required maxlength="1" placeholder="優"></label></div><div class="two-fields"><label><span data-ja="相手の呼び名" data-zh="对象的昵称">相手の呼び名</span><input name="nameB" required maxlength="16" placeholder="あおい"></label><label><span data-ja="相手の一文字" data-zh="对象的头像文字">相手の一文字</span><input name="initialB" required maxlength="1" placeholder="葵"></label></div><div class="two-fields"><label><span data-ja="出会った日（任意）" data-zh="相识日期（可选）">出会った日（任意）</span><input name="metDate" type="date"></label><label><span data-ja="恋人になった日（任意）" data-zh="开始交往日期（可选）">恋人になった日（任意）</span><input name="datingDate" type="date"></label></div><label class="consent"><input required type="checkbox"><span><span data-ja="利用規約とプライバシーポリシーに同意します" data-zh="同意使用条款与隐私政策">利用規約とプライバシーポリシーに同意します</span></span></label><button class="primary-button" type="submit"><span data-ja="空間と招待コードを作る" data-zh="创建空间与邀请码">空間と招待コードを作る</span><b>→</b></button></form></div></div>
 
@@ -137,6 +158,10 @@
   <div id="codesModal" class="modal" aria-hidden="true"><div class="modal-backdrop"></div><div class="modal-card large"><span class="section-kicker">CODES CREATED</span><h2 data-ja="大切に保存してください" data-zh="请妥善保存">大切に保存してください</h2><p data-ja="コードそのものはデータベースに保存されません。機種変更時にも必要です。" data-zh="数据库不会保存邀请码原文，换手机恢复时也需要。">コードそのものはデータベースに保存されません。機種変更時にも必要です。</p><div id="createdCodes"></div><label class="consent"><input id="codesSaved" type="checkbox"><span data-ja="2つのコードを安全な場所に保存しました" data-zh="我已将两个代码保存在安全的地方">2つのコードを安全な場所に保存しました</span></label><button id="finishCodes" class="primary-button" disabled><span data-ja="月結びを始める" data-zh="开始使用月结">月結びを始める</span><b>→</b></button></div></div>
 
   <div id="settingsModal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close></div><div class="modal-card large"><button class="modal-x" data-close>×</button><span class="section-kicker">SETTINGS</span><h2 data-ja="ふたりの設定" data-zh="两个人的设置">ふたりの設定</h2><div id="settingsContent"></div></div></div>
+
+  <div id="pricingModal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close></div><div class="modal-card large pricing-card"><button class="modal-x" data-close>×</button><span class="section-kicker">TSUKIMUSUBI PLUS</span><h2 data-ja="一度の購入で、ふたりともPlusに。" data-zh="一次购买，两个人都能使用Plus。">一度の購入で、ふたりともPlusに。</h2><p data-ja="自動更新はありません。期限後も無料版のデータは残ります。" data-zh="不会自动续费，到期后免费版数据仍会保留。">自動更新はありません。期限後も無料版のデータは残ります。</p><div class="price-grid"><article><span data-ja="1か月パス" data-zh="1个月通行证">1か月パス</span><strong>¥290</strong><small data-ja="ふたり分・買い切り" data-zh="两人共享・一次性购买">ふたり分・買い切り</small><button disabled data-ja="課金準備中" data-zh="付费功能准备中">課金準備中</button></article><article class="recommended"><em data-ja="おすすめ" data-zh="推荐">おすすめ</em><span data-ja="3か月パス" data-zh="3个月通行证">3か月パス</span><strong>¥790</strong><small data-ja="月あたり約263円" data-zh="每月约263日元">月あたり約263円</small><button disabled data-ja="課金準備中" data-zh="付费功能准备中">課金準備中</button></article></div><div class="benefit-list"><b data-ja="Plusに含まれるもの" data-zh="Plus包含">Plusに含まれるもの</b><ul><li data-ja="写真300枚の共有アルバム" data-zh="300张照片共享相册">写真300枚の共有アルバム</li><li data-ja="記念日・デート記録・行きたい場所の上限拡大" data-zh="扩展纪念日、约会记录与愿望上限">記念日・デート記録・行きたい場所の上限拡大</li><li data-ja="テーマ質問と関係レポート" data-zh="主题问题与关系报告">テーマ質問と関係レポート</li></ul></div><p class="pricing-note" data-ja="LINEの課金審査が完了するまで購入はできません。価格と機能は先行表示です。" data-zh="LINE付费审核完成前暂时无法购买，当前为价格与功能预览。">LINEの課金審査が完了するまで購入はできません。価格と機能は先行表示です。</p></div></div>
+
+  <div id="memoryModal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close></div><div class="modal-card"><button class="modal-x" data-close>×</button><span class="section-kicker">OUR MEMORIES</span><h2 id="memoryModalTitle">—</h2><form id="memoryForm" class="stack-form"><input type="hidden" name="type"><label><span id="memoryDateLabel" data-ja="日付" data-zh="日期">日付</span><input name="date" type="date"></label><label><span data-ja="タイトル" data-zh="标题">タイトル</span><input name="title" required maxlength="60"></label><label id="memoryPlaceField"><span data-ja="場所（任意）" data-zh="地点（可选）">場所（任意）</span><input name="place" maxlength="80"></label><label><span data-ja="メモ（任意）" data-zh="备注（可选）">メモ（任意）</span><textarea name="note" maxlength="1000"></textarea></label><button class="primary-button" type="submit"><span data-ja="思い出に追加" data-zh="添加到回忆">思い出に追加</span><b>→</b></button></form></div></div>
 
   <div id="legalModal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close></div><div class="modal-card legal-card"><button class="modal-x" data-close>×</button><div id="legalContent"></div></div></div>
   <div id="toast" class="toast"></div>
